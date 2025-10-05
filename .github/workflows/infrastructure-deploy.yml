@@ -1,0 +1,270 @@
+name: Infrastructure Deploy/Destroy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: deploy or destroy
+        required: true
+        default: deploy
+      files:
+        description: space-separated YAML paths (e.g., configs/a.yaml configs/b.yaml)
+        required: false
+      approve:
+        description: yes to auto-apply / non-interactive
+        required: false
+        default: "no"
+
+permissions:
+  contents: write
+
+jobs:
+  infra:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyyaml
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      - name: Configure ADC with personal credentials
+        env:
+          PERSONAL: ${{ secrets.PERSONAL_GCP_CREDENTIALS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          CREDS="$RUNNER_TEMP/creds.json"
+          printf '%s' "$PERSONAL" > "$CREDS"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$CREDS" >> $GITHUB_ENV
+          echo "CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE=$CREDS" >> $GITHUB_ENV
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Parse intent and files from commit message
+        id: parse
+        shell: bash
+        run: |
+          set -euo pipefail
+          MSG="${{ github.event.head_commit.message }}"
+          ACTION=""
+          APPROVE="no"
+          FILES=""
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            ACTION="${{ github.event.inputs.action }}"
+            APPROVE="${{ github.event.inputs.approve }}"
+            FILES="${{ github.event.inputs.files }}"
+          else
+            # Clean up the message - remove extra spaces and convert to lowercase
+            MSG_CLEAN=$(echo "$MSG" | tr -s ' ' | tr '[:upper:]' '[:lower:]')
+            echo "Cleaned message: '$MSG_CLEAN'"
+            
+            # Check for exact patterns
+            if [[ "$MSG_CLEAN" =~ ^deploy[[:space:]]*$ ]]; then
+              # "deploy" only - all yaml files, plan only
+              ACTION="deploy"
+              APPROVE="no"
+              RANGE="${{ github.event.before }}..${{ github.sha }}"
+              FILES=$(git diff --name-only $RANGE | grep -E '^configs/.+\.(yaml|yml)$' || true)
+            elif [[ "$MSG_CLEAN" =~ ^deploy[[:space:]]+yes[[:space:]]*$ ]]; then
+              # "deploy yes" - all yaml files, apply
+              ACTION="deploy"
+              APPROVE="yes"
+              RANGE="${{ github.event.before }}..${{ github.sha }}"
+              FILES=$(git diff --name-only $RANGE | grep -E '^configs/.+\.(yaml|yml)$' || true)
+            elif [[ "$MSG_CLEAN" =~ ^deploy[[:space:]]+configs/[a-z0-9_./\-]+\.(yaml|yml)[[:space:]]*$ ]]; then
+              # "deploy configs/file.yaml" - specific file, plan only
+              ACTION="deploy"
+              APPROVE="no"
+              FILES=$(echo "$MSG_CLEAN" | grep -oE 'configs/[a-z0-9_./\-]+\.(yaml|yml)' || true)
+            elif [[ "$MSG_CLEAN" =~ ^deploy[[:space:]]+configs/[a-z0-9_./\-]+\.(yaml|yml)[[:space:]]+yes[[:space:]]*$ ]]; then
+              # "deploy configs/file.yaml yes" - specific file, apply
+              ACTION="deploy"
+              APPROVE="yes"
+              FILES=$(echo "$MSG_CLEAN" | grep -oE 'configs/[a-z0-9_./\-]+\.(yaml|yml)' || true)
+            elif [[ "$MSG_CLEAN" =~ ^destroy[[:space:]]*$ ]]; then
+              # "destroy" only - all yaml files, plan only
+              ACTION="destroy"
+              APPROVE="no"
+              RANGE="${{ github.event.before }}..${{ github.sha }}"
+              FILES=$(git diff --name-only $RANGE | grep -E '^configs/.+\.(yaml|yml)$' || true)
+            elif [[ "$MSG_CLEAN" =~ ^destroy[[:space:]]+yes[[:space:]]*$ ]]; then
+              # "destroy yes" - all yaml files, apply
+              ACTION="destroy"
+              APPROVE="yes"
+              RANGE="${{ github.event.before }}..${{ github.sha }}"
+              FILES=$(git diff --name-only $RANGE | grep -E '^configs/.+\.(yaml|yml)$' || true)
+            elif [[ "$MSG_CLEAN" =~ ^destroy[[:space:]]+configs/[a-z0-9_./\-]+\.(yaml|yml)[[:space:]]*$ ]]; then
+              # "destroy configs/file.yaml" - specific file, plan only
+              ACTION="destroy"
+              APPROVE="no"
+              FILES=$(echo "$MSG_CLEAN" | grep -oE 'configs/[a-z0-9_./\-]+\.(yaml|yml)' || true)
+            elif [[ "$MSG_CLEAN" =~ ^destroy[[:space:]]+configs/[a-z0-9_./\-]+\.(yaml|yml)[[:space:]]+yes.*$ ]]; then
+              # "destroy configs/file.yaml yes" - specific file, apply
+              ACTION="destroy"
+              APPROVE="yes"
+              FILES=$(echo "$MSG_CLEAN" | grep -oE 'configs/[a-z0-9_./\-]+\.(yaml|yml)' || true)
+            else
+              # No valid pattern found
+              ACTION=""
+              APPROVE="no"
+              FILES=""
+            fi
+          fi
+          echo "action=$ACTION" >> $GITHUB_OUTPUT
+          echo "approve=$APPROVE" >> $GITHUB_OUTPUT
+          echo "files=$FILES" >> $GITHUB_OUTPUT
+          printf "Parsed action='%s' approve='%s' files=\n%s\n" "$ACTION" "$APPROVE" "$FILES"
+
+      - name: Short-circuit if no action detected
+        if: steps.parse.outputs.action == ''
+        run: |
+          echo "No deploy/destroy action detected in commit. Skipping."
+          exit 0
+
+      - name: Short-circuit if no config files detected
+        if: steps.parse.outputs.files == ''
+        run: |
+          echo "No configs/*.yaml detected in commit or workflow inputs. Skipping."
+          exit 0
+
+      - name: Show plan-only note for destroy without approve
+        if: steps.parse.outputs.action == 'destroy' && steps.parse.outputs.approve != 'yes'
+        run: |
+          echo "Destroy will run in plan-only mode (no actual destruction)."
+
+      - name: Run deploy (plan-only unless approve=yes)
+        if: steps.parse.outputs.action == 'deploy'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Ensure .tf-runs directory exists
+          mkdir -p .tf-runs
+          echo "Created .tf-runs directory"
+
+          FILES=( ${{ steps.parse.outputs.files }} )
+          if [[ "${{ steps.parse.outputs.approve }}" == "yes" ]]; then
+            # auto-approve applies by piping yes
+            yes | python scripts/deploy.py "${FILES[@]}"
+          else
+            # ensure plan-only by piping no responses
+            yes no | python scripts/deploy.py "${FILES[@]}" || true
+          fi
+
+      - name: Run destroy (plan-only unless approve=yes)
+        if: steps.parse.outputs.action == 'destroy'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Ensure .tf-runs directory exists
+          mkdir -p .tf-runs
+          echo "Created .tf-runs directory"
+
+          FILES=( ${{ steps.parse.outputs.files }} )
+          if [[ "${{ steps.parse.outputs.approve }}" == "yes" ]]; then
+            # auto-approve applies by piping yes
+            MSG="${{ github.event.head_commit.message }}"
+            CHOICE=m
+            shopt -s nocasematch
+            [[ "$MSG" =~ project ]] && CHOICE=p || true
+            shopt -u nocasematch
+            # feed: yes then choice m/p
+            { echo yes; echo "$CHOICE"; } | python scripts/destroy.py "${FILES[@]}"
+          else
+            # ensure plan-only by piping no responses
+            yes no | python scripts/destroy.py "${FILES[@]}" || true
+          fi
+
+      - name: Persist .tf-runs into repo
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Current directory: $(pwd)"
+          echo "Contents of .tf-runs:"
+          ls -la .tf-runs/ || echo "No .tf-runs directory found"
+          if [ -d ".tf-runs" ]; then
+            echo "Contents of .tf-runs subdirectories:"
+            find .tf-runs -type f -name "*.tf" -o -name "*.json" | head -20
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Add all files under .tf-runs except the .terraform directory
+          if [ -d ".tf-runs" ]; then
+            find .tf-runs -type f ! -path "*/.terraform/*" -print0 | xargs -0 git add -f
+            echo "Added .tf-runs files (excluding .terraform directory)"
+          else
+            echo "No .tf-runs directory to add"
+          fi
+
+          # Check for deleted directories and add them to git
+          if [ -d ".tf-runs" ]; then
+            # Find directories that were removed (exist in git but not in filesystem)
+            for dir in $(git ls-tree -r --name-only HEAD .tf-runs/ | cut -d'/' -f1-2 | sort -u); do
+              if [ ! -d "$dir" ]; then
+                echo "Directory $dir was removed, adding to git"
+                git rm -r "$dir" 2>/dev/null || true
+              fi
+            done
+          fi
+
+          # Check if there are any changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "CI: persist tf state for ${{ steps.parse.outputs.files }} (action=${{ steps.parse.outputs.action }}, approve=${{ steps.parse.outputs.approve }})"
+            echo "Committed changes"
+            git push
+            echo "Pushed changes to remote"
+          fi
+
+      - name: Notify Slack (success)
+        if: success()
+        shell: bash
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${SLACK_WEBHOOK_URL:-}" ]]; then exit 0; fi
+          ACTION='${{ steps.parse.outputs.action }}'
+          APPROVE='${{ steps.parse.outputs.approve }}'
+          FILES='${{ steps.parse.outputs.files }}'
+          REPO='${{ github.repository }}'
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          MSG="✅ Infra ${ACTION} (approve=${APPROVE}) succeeded for ${FILES} in ${REPO}. <${RUN_URL}|Run details>"
+          curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"${MSG//\"/\\\"}\"}" "$SLACK_WEBHOOK_URL" || true
+
+      - name: Notify Slack (failure)
+        if: failure()
+        shell: bash
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${SLACK_WEBHOOK_URL:-}" ]]; then exit 0; fi
+          ACTION='${{ steps.parse.outputs.action }}'
+          APPROVE='${{ steps.parse.outputs.approve }}'
+          FILES='${{ steps.parse.outputs.files }}'
+          REPO='${{ github.repository }}'
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          MSG="❌ Infra ${ACTION} (approve=${APPROVE}) failed for ${FILES} in ${REPO}. <${RUN_URL}|Run details>"
+          curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"${MSG//\"/\\\"}\"}" "$SLACK_WEBHOOK_URL" || true
