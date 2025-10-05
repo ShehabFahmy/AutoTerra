@@ -23,13 +23,14 @@ def ReadYaml(sysArgs, callerName):
 
 def RunTerraform(command, project_path):
     try:
-        if command is "apply":
+        if command == "apply":
             print("\n[!] Running terraform init...")
             subprocess.run(["terraform", "init"], cwd=project_path, check=True)
+            subprocess.run(["terraform", "plan"], cwd=project_path, check=True)
             # if isApproved:
-            print("\n[!] Running terraform apply...")
-            subprocess.run(["terraform", "apply"], cwd=project_path, check=True)
-        elif command is "destroy":
+            # print("\n[!] Running terraform apply...")
+            # subprocess.run(["terraform", "apply"], cwd=project_path, check=True)
+        elif command == "destroy":
             print("\n[!] Running terraform destroy...")
             subprocess.run(["terraform", "destroy"], cwd=project_path, check=True)
     except subprocess.CalledProcessError as e:

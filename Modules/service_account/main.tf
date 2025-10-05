@@ -4,5 +4,3 @@ resource "google_service_account" "sa" {
   display_name = var.display_name
   description  = var.description
 }
-
-

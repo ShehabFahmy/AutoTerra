@@ -70,14 +70,16 @@ def CopyModules(modules, source_path, mods_path):
 
 def CheckAvailModules(data):
     modules = set()
-    if "project" in data and data["project"]:
-        modules.add("project")
-    if "vpc_name" in data and data["vpc_name"]:
-        modules.add("vpc")
-    if "subnets" in data and data["subnets"]:
-        modules.add("subnets")
-    if "firewall_rules" in data and data["firewall_rules"]:
-        modules.add("firewall_rules")
+    for key, value in data.items():
+        if value:  # check if not empty / None / []
+            # if key is "vpc_name", module should be "vpc"
+            if key == "vpc_name":
+                module = "vpc"
+            elif key == "cloud_dns_zones":
+                module = "cloud_dns"
+            else:
+                module = key
+            modules.add(module)
     return modules
 
 if __name__ == "__main__":
@@ -100,4 +102,4 @@ if __name__ == "__main__":
     WriteVarsTf(availModules, parent_dir/"variables.tf", vars_path)
     CopyModules(availModules, parent_dir/"Modules", mods_path)
     WriteTfvars(data, tfvars_path)
-    # RunTerraform("apply", project_path)
+    RunTerraform("apply", project_path)

@@ -14,5 +14,3 @@ resource "google_dns_record_set" "records" {
   ttl          = each.value.ttl
   rrdatas      = each.value.rrdatas
 }
-
-

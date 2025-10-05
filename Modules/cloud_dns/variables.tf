@@ -29,5 +29,3 @@ variable "record_sets" {
   }))
   default = []
 }
-
-

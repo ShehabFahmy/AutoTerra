@@ -13,8 +13,3 @@ resource "google_compute_disk" "disk" {
     kms_key_self_link = var.kms_key_self_link
   }
 }
-
-output "self_link" {
-  value = google_compute_disk.disk.self_link
-}
-
