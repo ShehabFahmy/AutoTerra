@@ -71,6 +71,8 @@ jobs:
             ACTION="${{ github.event.inputs.action }}"
             APPROVE="${{ github.event.inputs.approve }}"
             FILES="${{ github.event.inputs.files }}"
+            # normalize 'apply' to 'yes'
+            if [[ "$APPROVE" == "apply" ]]; then APPROVE="yes"; fi
           else
             # Clean up the message - remove extra spaces and convert to lowercase
             MSG_CLEAN=$(echo "$MSG" | tr -s ' ' | tr '[:upper:]' '[:lower:]')
@@ -83,7 +85,7 @@ jobs:
               APPROVE="no"
               RANGE="${{ github.event.before }}..${{ github.sha }}"
               FILES=$(git diff --name-only $RANGE | grep -E '^Configs/.+\.(yaml|yml)$' || true)
-            elif [[ "$MSG_CLEAN" =~ ^deploy[[:space:]]+yes[[:space:]]*$ ]]; then
+            elif [[ "$MSG_CLEAN" =~ ^deploy[[:space:]]+(yes|apply)[[:space:]]*$ ]]; then
               # "deploy yes" - all yaml files, apply
               ACTION="deploy"
               APPROVE="yes"
@@ -95,7 +97,7 @@ jobs:
               APPROVE="no"
               FILE_LOWER=$(echo "$MSG_CLEAN" | grep -oE 'configs/[a-z0-9_./\-]+\.(yaml|yml)' || true)
               FILES=$(echo "$FILE_LOWER" | sed 's#^configs/#Configs/#')
-            elif [[ "$MSG_CLEAN" =~ ^deploy[[:space:]]+configs/[a-z0-9_./\-]+\.(yaml|yml)[[:space:]]+yes[[:space:]]*$ ]]; then
+            elif [[ "$MSG_CLEAN" =~ ^deploy[[:space:]]+configs/[a-z0-9_./\-]+\.(yaml|yml)[[:space:]]+(yes|apply)[[:space:]]*$ ]]; then
               # "deploy configs/file.yaml yes" - specific file, apply
               ACTION="deploy"
               APPROVE="yes"
@@ -107,7 +109,7 @@ jobs:
               APPROVE="no"
               RANGE="${{ github.event.before }}..${{ github.sha }}"
               FILES=$(git diff --name-only $RANGE | grep -E '^Configs/.+\.(yaml|yml)$' || true)
-            elif [[ "$MSG_CLEAN" =~ ^destroy[[:space:]]+yes[[:space:]]*$ ]]; then
+            elif [[ "$MSG_CLEAN" =~ ^destroy[[:space:]]+(yes|apply)[[:space:]]*$ ]]; then
               # "destroy yes" - all yaml files, apply
               ACTION="destroy"
               APPROVE="yes"
@@ -119,7 +121,7 @@ jobs:
               APPROVE="no"
               FILE_LOWER=$(echo "$MSG_CLEAN" | grep -oE 'configs/[a-z0-9_./\-]+\.(yaml|yml)' || true)
               FILES=$(echo "$FILE_LOWER" | sed 's#^configs/#Configs/#')
-            elif [[ "$MSG_CLEAN" =~ ^destroy[[:space:]]+configs/[a-z0-9_./\-]+\.(yaml|yml)[[:space:]]+yes.*$ ]]; then
+            elif [[ "$MSG_CLEAN" =~ ^destroy[[:space:]]+configs/[a-z0-9_./\-]+\.(yaml|yml)[[:space:]]+(yes|apply).*$ ]]; then
               # "destroy configs/file.yaml yes" - specific file, apply
               ACTION="destroy"
               APPROVE="yes"
@@ -202,51 +204,6 @@ jobs:
               fi
             fi
           done
-
-      - name: Persist .tf-runs into repo
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "Current directory: $(pwd)"
-          echo "Contents of .tf-runs:"
-          ls -la .tf-runs/ || echo "No .tf-runs directory found"
-          if [ -d ".tf-runs" ]; then
-            echo "Contents of .tf-runs subdirectories:"
-            find .tf-runs -type f -name "*.tf" -o -name "*.json" | head -20
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          # Add all files under .tf-runs except the .terraform directory
-          if [ -d ".tf-runs" ]; then
-            find .tf-runs -type f ! -path "*/.terraform/*" -print0 | xargs -0 git add -f
-            echo "Added .tf-runs files (excluding .terraform directory)"
-          else
-            echo "No .tf-runs directory to add"
-          fi
-
-          # Check for deleted directories and add them to git
-          if [ -d ".tf-runs" ]; then
-            # Find directories that were removed (exist in git but not in filesystem)
-            for dir in $(git ls-tree -r --name-only HEAD .tf-runs/ | cut -d'/' -f1-2 | sort -u); do
-              if [ ! -d "$dir" ]; then
-                echo "Directory $dir was removed, adding to git"
-                git rm -r "$dir" 2>/dev/null || true
-              fi
-            done
-          fi
-
-          # Check if there are any changes to commit
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "CI: persist tf state for ${{ steps.parse.outputs.files }} (action=${{ steps.parse.outputs.action }}, approve=${{ steps.parse.outputs.approve }})"
-            echo "Committed changes"
-            git push
-            echo "Pushed changes to remote"
-          fi
 
       - name: Notify Slack (success)
         if: success()
