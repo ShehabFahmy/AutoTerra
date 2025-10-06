@@ -256,7 +256,7 @@ AutoTerra supports exactly **8 commands** for infrastructure management:
    - **What it does**: Destroys all GCP resources without deleting local folders
    - **Example**: `git commit -m "destroy module"`
    - **Behavior**: Removes cloud resources, keeps local project folders
- 
+  
 6. **`destroy all`**
    - **What it does**: Destroys all GCP resources and deletes all local folders
    - **Example**: `git commit -m "destroy all"`
