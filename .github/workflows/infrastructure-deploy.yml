@@ -67,6 +67,7 @@ jobs:
           ACTION=""
           APPROVE="no"
           FILES=""
+          SCOPE="modules" # default safety: do not delete folder unless requested
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             ACTION="${{ github.event.inputs.action }}"
             APPROVE="${{ github.event.inputs.approve }}"
@@ -103,30 +104,39 @@ jobs:
               APPROVE="yes"
               FILE_LOWER=$(echo "$MSG_CLEAN" | grep -oE 'configs/[a-z0-9_./\-]+\.(yaml|yml)' || true)
               FILES=$(echo "$FILE_LOWER" | sed 's#^configs/#Configs/#')
-            elif [[ "$MSG_CLEAN" =~ ^destroy[[:space:]]*$ ]]; then
+            elif [[ "$MSG_CLEAN" =~ ^destroy[[:space:]]*([am]|all|modules)?[[:space:]]*$ ]]; then
               # "destroy" only - all yaml files, plan only
               ACTION="destroy"
               APPROVE="no"
               RANGE="${{ github.event.before }}..${{ github.sha }}"
               FILES=$(git diff --name-only $RANGE | grep -E '^Configs/.+\.(yaml|yml)$' || true)
-            elif [[ "$MSG_CLEAN" =~ ^destroy[[:space:]]+(yes|apply)[[:space:]]*$ ]]; then
+              # optional scope token
+              if [[ "$MSG_CLEAN" =~ [[:space:]](all|a)[[:space:]]*$ ]]; then SCOPE="all"; fi
+              if [[ "$MSG_CLEAN" =~ [[:space:]](modules|m)[[:space:]]*$ ]]; then SCOPE="modules"; fi
+            elif [[ "$MSG_CLEAN" =~ ^destroy[[:space:]]+(yes|apply)([[:space:]]+(all|a|modules|m))?[[:space:]]*$ ]]; then
               # "destroy yes" - all yaml files, apply
               ACTION="destroy"
               APPROVE="yes"
               RANGE="${{ github.event.before }}..${{ github.sha }}"
               FILES=$(git diff --name-only $RANGE | grep -E '^Configs/.+\.(yaml|yml)$' || true)
-            elif [[ "$MSG_CLEAN" =~ ^destroy[[:space:]]+configs/[a-z0-9_./\-]+\.(yaml|yml)[[:space:]]*$ ]]; then
+              if [[ "$MSG_CLEAN" =~ (all|a)[[:space:]]*$ ]]; then SCOPE="all"; fi
+              if [[ "$MSG_CLEAN" =~ (modules|m)[[:space:]]*$ ]]; then SCOPE="modules"; fi
+            elif [[ "$MSG_CLEAN" =~ ^destroy[[:space:]]+configs/[a-z0-9_./\-]+\.(yaml|yml)([[:space:]]+(all|a|modules|m))?[[:space:]]*$ ]]; then
               # "destroy configs/file.yaml" - specific file, plan only
               ACTION="destroy"
               APPROVE="no"
               FILE_LOWER=$(echo "$MSG_CLEAN" | grep -oE 'configs/[a-z0-9_./\-]+\.(yaml|yml)' || true)
               FILES=$(echo "$FILE_LOWER" | sed 's#^configs/#Configs/#')
-            elif [[ "$MSG_CLEAN" =~ ^destroy[[:space:]]+configs/[a-z0-9_./\-]+\.(yaml|yml)[[:space:]]+(yes|apply).*$ ]]; then
+              if [[ "$MSG_CLEAN" =~ (all|a)[[:space:]]*$ ]]; then SCOPE="all"; fi
+              if [[ "$MSG_CLEAN" =~ (modules|m)[[:space:]]*$ ]]; then SCOPE="modules"; fi
+            elif [[ "$MSG_CLEAN" =~ ^destroy[[:space:]]+configs/[a-z0-9_./\-]+\.(yaml|yml)[[:space:]]+(yes|apply)([[:space:]]+(all|a|modules|m))?.*$ ]]; then
               # "destroy configs/file.yaml yes" - specific file, apply
               ACTION="destroy"
               APPROVE="yes"
               FILE_LOWER=$(echo "$MSG_CLEAN" | grep -oE 'configs/[a-z0-9_./\-]+\.(yaml|yml)' || true)
               FILES=$(echo "$FILE_LOWER" | sed 's#^configs/#Configs/#')
+              if [[ "$MSG_CLEAN" =~ (all|a)[[:space:]]*$ ]]; then SCOPE="all"; fi
+              if [[ "$MSG_CLEAN" =~ (modules|m)[[:space:]]*$ ]]; then SCOPE="modules"; fi
             else
               # No valid pattern found
               ACTION=""
@@ -137,6 +147,7 @@ jobs:
           echo "action=$ACTION" >> $GITHUB_OUTPUT
           echo "approve=$APPROVE" >> $GITHUB_OUTPUT
           echo "files=$FILES" >> $GITHUB_OUTPUT
+          echo "scope=$SCOPE" >> $GITHUB_OUTPUT
           printf "Parsed action='%s' approve='%s' files=\n%s\n" "$ACTION" "$APPROVE" "$FILES"
 
       - name: Short-circuit if no action detected
@@ -187,6 +198,7 @@ jobs:
         run: |
           set -euo pipefail
           FILES=( ${{ steps.parse.outputs.files }} )
+          export DESTROY_SCOPE="${{ steps.parse.outputs.scope }}"
           for f in "${FILES[@]}"; do
             echo "Running destroy for $f"
             if [[ "${{ steps.parse.outputs.approve }}" == "yes" ]]; then
