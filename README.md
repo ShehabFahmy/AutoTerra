@@ -226,12 +226,51 @@ The workflow requires a GCP service account key stored as a repository secret:
 
 ### Commit Message Commands
 
-| Action              | Example Commit Message                                 | Behavior                     |
-| ------------------- | ------------------------------------------------------ | ---------------------------- |
-| Deploy (plan only)  | `deploy` or `deploy Configs/project-01.yaml`           | Shows Terraform plan         |
-| Deploy (apply)      | `deploy apply` or `deploy Configs/project-01.yaml apply` | Runs non-interactive apply   |
-| Destroy (module)    | `destroy module` or `destroy Configs/project-01.yaml module` | Destroys resources only     |
-| Destroy (all)       | `destroy all` or `destroy Configs/project-01.yaml all` | Destroys resources and folders |
+AutoTerra supports exactly **8 commands** for infrastructure management:
+
+#### 🚀 **Deploy Commands (4)**
+
+1. **`deploy`**
+   - **What it does**: Plans all YAML files in Configs/
+   - **Example**: `git commit -m "deploy"`
+   - **Behavior**: Shows Terraform plan only, no changes applied
+
+2. **`deploy apply`**
+   - **What it does**: Plans and applies all YAML files in Configs/
+   - **Example**: `git commit -m "deploy apply"`
+   - **Behavior**: Shows plan then automatically applies changes
+
+3. **`deploy configs/file.yaml`**
+   - **What it does**: Plans specific YAML file
+   - **Example**: `git commit -m "deploy configs/project-01.yaml"`
+   - **Behavior**: Shows Terraform plan for single project only
+
+4. **`deploy configs/file.yaml apply`**
+   - **What it does**: Plans and applies specific YAML file
+   - **Example**: `git commit -m "deploy configs/project-01.yaml apply"`
+   - **Behavior**: Shows plan then automatically applies changes for single project
+
+#### 🗑️ **Destroy Commands (4)**
+
+5. **`destroy module`**
+   - **What it does**: Destroys all GCP resources without deleting local folders
+   - **Example**: `git commit -m "destroy module"`
+   - **Behavior**: Removes cloud resources, keeps local project folders
+
+6. **`destroy all`**
+   - **What it does**: Destroys all GCP resources and deletes all local folders
+   - **Example**: `git commit -m "destroy all"`
+   - **Behavior**: Complete cleanup - removes cloud resources and local folders
+
+7. **`destroy configs/file.yaml module`**
+   - **What it does**: Destroys specific project resources without deleting folder
+   - **Example**: `git commit -m "destroy configs/project-01.yaml module"`
+   - **Behavior**: Removes specific project's cloud resources, keeps local folder
+
+8. **`destroy configs/file.yaml all`**
+   - **What it does**: Destroys specific project resources and deletes folder
+   - **Example**: `git commit -m "destroy configs/project-01.yaml all"`
+   - **Behavior**: Complete cleanup for specific project - removes resources and folder
 
 > If file paths aren’t specified, the workflow automatically targets changed YAML files under `Configs/`.
 
