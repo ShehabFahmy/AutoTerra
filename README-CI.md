@@ -21,7 +21,7 @@ This document explains how the repository’s GitHub Actions workflow deploys an
 
 **Only these 8 commands are supported:**
 
-#### Deploy Commands
+#### Deploy Commands 
 - `deploy` - Plan all changed YAML files
 - `deploy apply` - Plan and apply all changed YAML files
 - `deploy configs/project-01.yaml` - Plan specific YAML file
