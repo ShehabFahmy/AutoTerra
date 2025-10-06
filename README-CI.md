@@ -4,7 +4,7 @@ This document explains how the repository’s GitHub Actions workflow deploys an
 
 ### Overview
 - Reads intent from commit messages or manual inputs.
-- Runs `Scripts/deploy.py` (deploy) or `Scripts/destroy.py` (destroy) for the specifiedd YAML files in `Configs/`.
+- Runs `Scripts/deploy.py` (deploy) or `Scripts/destroy.py` (destroy) for the specified YAML files in `Configs/`.
 - Plans by default; applies only when explicitly approved.
 - Commits the generated `<project_id>/` directory back to the repository (excluding `.terraform`).
 
