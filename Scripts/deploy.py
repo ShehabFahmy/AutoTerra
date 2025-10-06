@@ -12,7 +12,23 @@ def WriteTfvars(data, tfvars_path):
                     tfvars.write(f"{key} = null\n")
                 elif isinstance(value, str):
                     tfvars.write(f'{key} = "{value}"\n')
-                elif isinstance(value, (dict, list)):
+                elif isinstance(value, dict):
+                    # For dict values, add name attribute if it's a map of objects
+                    if key in ['routes', 'subnets', 'firewall_rules', 'compute_disks', 'static_ips', 'service_accounts', 'cloud_dns_zones', 'compute_instances', 'load_balancers']:
+                        # This is a map of objects, add name attribute to each
+                        processed_value = {}
+                        for obj_key, obj_value in value.items():
+                            if isinstance(obj_value, dict):
+                                obj_value_with_name = obj_value.copy()
+                                obj_value_with_name['name'] = obj_key
+                                processed_value[obj_key] = obj_value_with_name
+                            else:
+                                processed_value[obj_key] = obj_value
+                        tfvars.write(f"{key} = {json.dumps(processed_value, indent=2)}\n")
+                    else:
+                        # Regular dict, use as-is
+                        tfvars.write(f"{key} = {json.dumps(value, indent=2)}\n")
+                elif isinstance(value, list):
                     # Use json.dumps for proper double-quote formatting
                     tfvars.write(f"{key} = {json.dumps(value, indent=2)}\n")
                 else:
