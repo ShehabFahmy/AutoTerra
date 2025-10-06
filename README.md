@@ -1,22 +1,24 @@
-# AutoGCP: Automated GCP Infrastructure Deployment with Terraform and YAML
+# AutoTerra: Automated GCP Infrastructure Deployment with Terraform and YAML
 
-This project streamlines the creation of Google Cloud Platform (GCP) infrastructure. Instead of writing complex Terraform code for each new environment, you simply define all your required resources in a single YAML file. An automation script then parses this file, generates the necessary Terraform configuration, and deploys the infrastructure.
+**AutoTerra** is a framework that automates the deployment of Google Cloud Platform (GCP) infrastructure using **Terraform** and **YAML**.
+Instead of manually writing Terraform code for each environment, you define your resources once in a simple YAML file. A Python automation script then parses it, generates the required Terraform configuration, and applies it to your GCP account.
 
-This approach is based on the requirements outlined in the [Terraform_Auto_Intern_Project.md](Terraform_Auto_Intern_Project.md) document, which aimed to simplify and accelerate the setup of new GCP projects.
+This project was inspired by the [Terraform_Auto_Intern_Project.md](Terraform_Auto_Intern_Project.md) specification, which aimed to simplify and accelerate the setup of new GCP projects.
 
-## Features
+## Key Features
 
-  * **YAML-Driven Infrastructure**: Define entire GCP environments—from projects and VPCs to VMs and Load Balancers—in a simple, human-readable YAML file.
-  * **Modular & Reusable**: Built on a foundation of reusable Terraform modules for consistent and maintainable resource creation.
-  * **Full Automation**: Python scripts handle the entire workflow: reading your config, generating Terraform variables, and running `apply` or `destroy`.
-  * **CI/CD Integrated**: Includes a powerful GitHub Actions workflow that automates deployment and destruction based on git commit messages or manual triggers.
-  * **Comprehensive Resource Support**: Easily provision a wide range of common GCP services.
+- **YAML-Based Configuration** – Define complete GCP environments in a single, readable YAML file.
+- **Dynamic Terraform Generation** – Only includes the Terraform code and modules relevant to your configuration.
+- **Isolated Environments** – Each deployment has its own directory and Terraform state to prevent conflicts.
+- **Fully Automated Workflow** – Python scripts handle reading, generation, and execution (apply/destroy).
+- **Modular and Reusable** – Built from Terraform modules that can be easily maintained and extended.
+- **CI/CD Ready** – GitHub Actions workflow automates deployment and destruction from commits or manual triggers.
 
 ---
 
 ## Supported GCP Resources
 
-This framework supports the creation and management of the following GCP resources through their respective modules:
+AutoTerra supports the following GCP services through dedicated Terraform modules:
 
   * **GCP Project**: Creates a new project and links billing.
   * **VPC Network**: Provisions a Virtual Private Cloud.
@@ -33,53 +35,72 @@ This framework supports the creation and management of the following GCP resourc
 
 ---
 
+## How It Works: The Template Engine
+
+The project uses a dynamic generation process to create an isolated Terraform environment for each deployment.
+
+1.  **YAML as Input**: You define the desired resources in a `.yaml` file in the `Configs/` directory.
+2.  **Directory Creation**: The `deploy.py` script reads your YAML and creates a new directory named after the `project_id` specified within it. This directory will contain all the necessary Terraform files for that specific deployment.
+3.  **Template Copying**: The script treats the root `main.tf`, `variables.tf`, and the `Modules/` directory as **templates**. It intelligently filters these files and copies only the relevant code and module folders into the newly created project directory. For example, if your YAML doesn't define any `gcs_bucket`, the GCS module and its corresponding variable definitions won't be copied.
+4.  **Isolated State**: This process ensures each deployment is self-contained in its own folder with its own Terraform state file, preventing conflicts between different environments.
+
+---
+
 ## Project Structure
 
 The repository is organized to separate configuration, automation logic, and Terraform modules.
 
 ```
 .
-├── Configs/
-│   ├── project-01.yaml
-│   └── project-02.yaml
-├── main.tf
-├── variables.tf
-├── Modules/
-│   ├── project/
-│   ├── vpc/
-│   ├── subnet/
-│   │   ... (and other resource modules)
-├── Scripts/
-│   ├── deploy.py
-│   ├── destroy.py
-│   └── helper_functions.py
-├── .github/workflows/
-│   └── infrastructure-deploy.yml
-├── README.md
-└── README-CI.md
+├── Configs/                  # Contains example YAML files that define the infrastructure for each project.
+│   ├── project-01.yaml
+│   └── project-02.yaml
+├── main.tf                   # Reference for deploy.py to copy root Terraform modules.
+├── variables.tf              # Reference for deploy.py to copy root Terraform variables.
+├── Modules/                  # Reusable Terraform modules for creating specific GCP resources.
+│   ├── project/
+│   ├── vpc/
+│   ├── subnet/
+│   │   ... (and other resource modules)
+├── Scripts/                  # Contains the Python scripts used to automate the Terraform workflow.
+│   ├── deploy.py
+│   ├── destroy.py
+│   └── helper_functions.py
+├── .github/workflows/        # GitHub Actions workflow that runs the deploy/destroy scripts based on commit messages.
+│   └── infrastructure-deploy.yml
+├── README.md                 # The main documentation file explaining the project's purpose, setup, and usage.
+└── README-CI.md              # A detailed guide explaining how the CI/CD workflow operates.
 ```
 
 ---
 
-## Prerequisites
+## Automation Scripts
 
-Before you begin, ensure you have the following installed and configured:
+The core logic of this project resides in the Python scripts located in the `Scripts/` directory.
 
-1.  **Terraform**: Version `1.6.0` or compatible.
-2.  **Python**: Version `3.11` or compatible.
-3.  **Python Dependencies**: Install the required `PyYAML` package.
-    ```bash
-    pip install pyyaml
-    ```
-4.  **Google Cloud SDK (`gcloud`)**: Authenticated to your GCP account.
-5.  **GCP Authentication**: You must be authenticated for the scripts to work. The recommended method is to use Application Default Credentials (ADC):
-    ```bash
-    gcloud auth application-default login
-    ```
+### `deploy.py`
+This script orchestrates the creation of infrastructure. Its primary functions are:
+* To read and parse the user-provided YAML configuration file.
+* To create a new, isolated project directory based on the `project_id`.
+* To generate deployment-specific `main.tf` and `variables.tf` files by copying only the necessary blocks from the root templates.
+* To copy the required module folders from the root `Modules/` directory into the new project directory.
+* To convert the YAML data into a `terraform.tfvars` file that Terraform can understand.
+* To run `terraform init` and `terraform apply`, prompting the user for final approval before making any changes to the cloud environment.
+
+### `destroy.py`
+This script is responsible for tearing down the infrastructure.
+* It targets the specific project directory that corresponds to the input YAML file.
+* It runs the `terraform destroy` command after receiving user confirmation.
+* It prompts for a **destroy scope**, allowing you to either destroy the cloud resources while keeping the local configuration folder (`modules`) or destroy both the cloud resources and the local folder (`all`).
+
+### `helper_functions.py`
+This is a utility script that contains shared functions to keep the code DRY (Don't Repeat Yourself).
+* It includes a function to safely read and parse YAML files, which is used by both `deploy.py` and `destroy.py`.
+* It contains the function for running Terraform commands as a subprocess, handling user interaction for apply/destroy approvals.
 
 ---
 
-## Configuration
+## Configuration Example
 
 All infrastructure is defined in a YAML file within the [Configs/](Configs/) directory. You can create a new file or modify an existing one like [project-01.yaml](Configs/project-01.yaml).
 
@@ -131,41 +152,108 @@ compute_instances:
 
 ---
 
+## Prerequisites
+
+Before running AutoTerra, make sure you have:
+
+1.  **Terraform**: Version `1.6.0` or later.
+2.  **Python**: Version `3.11` or later.
+3.  **Python Dependencies**: Install the required `PyYAML` package.
+    ```bash
+    pip install pyyaml
+    ```
+4.  **Google Cloud SDK (`gcloud`)**: Authenticated to your GCP account.
+5.  **GCP Authentication**: You must be authenticated for the scripts to work. The recommended method is to use Application Default Credentials (ADC):
+    ```bash
+    gcloud auth application-default login
+    ```
+
+---
+
 ## How to Run Locally
 
 You can deploy or destroy infrastructure directly from your local machine using the provided Python scripts.
 
-### 1. Create Your Configuration
+### Create Your Configuration
 
 Create a new file (e.g., `my-project.yaml`) inside the [Configs/](Configs/) directory.
 
-### 2. Deploy Infrastructure
+### Deploy Infrastructure
 
 Run the [deploy.py](Scripts/deploy.py) script, passing the path to your configuration file. The script will first run a `terraform plan` and then prompt you for confirmation before applying the changes.
 
 ```bash
 # The script will prompt for a 'yes' or 'no'
-python Scripts/deploy.py Configs/my-project.yaml
+python3 Scripts/deploy.py Configs/my-project.yaml
 ```
 
-### 3. Destroy Infrastructure
+### Destroy Infrastructure
 
 To tear down all resources managed by a configuration, run the [destroy.py](Scripts/destroy.py) script. You will be prompted for confirmation twice: once for the Terraform destroy action and once to determine the destroy scope.
 
-  - **Destroy Scope `modules`**: Runs `terraform destroy` but keeps the generated project folder.
-  - **Destroy Scope `all`**: Runs `terraform destroy` and then deletes the generated project folder.
-
 ```bash
 # The script will prompt for confirmation
-python Scripts/destroy.py Configs/my-project.yaml
+python3 Scripts/destroy.py Configs/my-project.yaml
 ```
 
 ---
 
-## CI/CD Automation
+## CI/CD Integration (GitHub Actions)
 
-This project includes a GitHub Actions workflow for fully automated CI/CD. The workflow is triggered by pushes to the `main` branch or can be run manually. It parses commit messages to determine the action (`deploy`/`destroy`), target files, and approval status.
+AutoTerra includes a GitHub Actions workflow for continuous deployment and destruction. It can be triggered automatically by commits or manually through the GitHub interface. Commit messages determine whether to **deploy** or **destroy** a given configuration.
 
-For a complete guide on commit message syntax, manual dispatch inputs, and troubleshooting, please see [README-CI.md](README-CI.md).
+### How It Works
+
+* Detects intent from **commit messages** or **manual inputs**.
+* Runs the appropriate script:
+
+  * `Scripts/deploy.py` for deployment
+  * `Scripts/destroy.py` for teardown
+* Performs a **Terraform plan** by default and applies only when explicitly approved.
+* Commits the generated `<project_id>/` directory back to the repository (excluding `.terraform`).
+
+### Authentication & Secrets
+
+The workflow requires a GCP service account key stored as a repository secret:
+
+* `PERSONAL_GCP_CREDENTIALS`: JSON content of a service account with permissions to create, modify, and delete GCP resources.
+* *(Optional)* `SLACK_WEBHOOK_URL`: Used for sending success or failure notifications.
+
+### Triggers
+
+* **Push to `main` branch** with specific commit messages (see below).
+* **Manual run** from the GitHub Actions interface with selected inputs.
+
+### Commit Message Commands
+
+| Action              | Example Commit Message                                 | Behavior                     |
+| ------------------- | ------------------------------------------------------ | ---------------------------- |
+| Deploy (plan only)  | `deploy` or `deploy Configs/project-01.yaml`           | Shows Terraform plan         |
+| Deploy (apply)      | `deploy yes` or `deploy Configs/project-01.yaml yes`   | Runs non-interactive apply   |
+| Destroy (plan only) | `destroy` or `destroy Configs/project-01.yaml`         | Shows destroy plan           |
+| Destroy (apply)     | `destroy yes` or `destroy Configs/project-01.yaml yes` | Runs non-interactive destroy |
+
+> If file paths aren’t specified, the workflow automatically targets changed YAML files under `Configs/`.
+
+### Manual Dispatch Inputs
+
+You can also trigger the workflow manually by specifying:
+
+* `action`: `deploy` or `destroy`
+* `files` (optional): YAML file paths, e.g. `Configs/project-01.yaml Configs/project-02.yaml`
+* `approve` (optional): Set to `yes` to apply or destroy; omit for plan-only runs
+* `DESTROY_SCOPE`: Set to `modules` or `all` to control local cleanup
+
+### Repository Updates
+
+After each successful run, the workflow commits the generated Terraform project folder back to the repository for version tracking.
+
+### Notes
+
+* Without `yes`, the workflow performs a plan only (`terraform plan`).
+* With `yes`, it applies or destroys resources non-interactively.
+* Ensure the provided service account key (`PERSONAL_GCP_CREDENTIALS`) has all necessary GCP roles and billing permissions.
+
+For a full explanation of triggers, inputs, and troubleshooting, see [README-CI.md](README-CI.md).
 
 ---
