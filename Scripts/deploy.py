@@ -88,7 +88,7 @@ if __name__ == "__main__":
     # Get parent directory of this script
     parent_dir = Path(__file__).resolve().parent.parent
     # Create folder named after the project_id
-    project_path = parent_dir / f"{data["project"]["project_id"]}"
+    project_path = parent_dir / f"{data['project']['project_id']}"
     project_path.mkdir(parents=True, exist_ok=True)
 
     availModules = CheckAvailModules(data)
