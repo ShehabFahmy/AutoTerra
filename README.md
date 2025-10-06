@@ -229,7 +229,7 @@ The workflow requires a GCP service account key stored as a repository secret:
 AutoTerra supports exactly **8 commands** for infrastructure management:
 
 #### 🚀 **Deploy Commands (4)**
-
+ 
 1. **`deploy`**
    - **What it does**: Plans all YAML files in Configs/
    - **Example**: `git commit -m "deploy"`
