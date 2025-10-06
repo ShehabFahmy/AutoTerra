@@ -1,206 +1,171 @@
-# AutoGCP: Simple GCP Project Creation via YAML
+# AutoGCP: Automated GCP Infrastructure Deployment with Terraform and YAML
 
-This project provides a **lightweight automation framework** to simplify creating and managing GCP projects.
-Instead of writing and editing Terraform code manually, you can now define your project in a **YAML file** and let Python scripts handle the rest.
+This project streamlines the creation of Google Cloud Platform (GCP) infrastructure. Instead of writing complex Terraform code for each new environment, you simply define all your required resources in a single YAML file. An automation script then parses this file, generates the necessary Terraform configuration, and deploys the infrastructure.
 
-By the end of setup, you’ll be able to:
+This approach is based on the requirements outlined in the [Terraform_Auto_Intern_Project.md](Terraform_Auto_Intern_Project.md) document, which aimed to simplify and accelerate the setup of new GCP projects.
 
-- Provision new GCP projects with a single command
-- Keep project configurations clean in YAML files
-- Reuse the same Terraform module for multiple projects
-- Destroy projects easily when no longer needed
+## Features
 
----
-
-## Project Goal
-
-The goal is to make **GCP project creation simple and reusable**.
-
-This setup will:
-
-1. Take a YAML config file with project details
-2. Convert it into Terraform variables
-3. Use Terraform to provision the GCP project
-4. Optionally, allow easy cleanup via `destroy.py`
+  * **YAML-Driven Infrastructure**: Define entire GCP environments—from projects and VPCs to VMs and Load Balancers—in a simple, human-readable YAML file.
+  * **Modular & Reusable**: Built on a foundation of reusable Terraform modules for consistent and maintainable resource creation.
+  * **Full Automation**: Python scripts handle the entire workflow: reading your config, generating Terraform variables, and running `apply` or `destroy`.
+  * **CI/CD Integrated**: Includes a powerful GitHub Actions workflow that automates deployment and destruction based on git commit messages or manual triggers.
+  * **Comprehensive Resource Support**: Easily provision a wide range of common GCP services.
 
 ---
 
-## Tools Used
+## Supported GCP Resources
 
-- **Terraform** – Infrastructure as Code
-- **GCP (Google Cloud Platform)** – Cloud provider
-- **Python** – Automation scripting
-- **YAML** – Config format for projects
-- **Git** – Version control
+This framework supports the creation and management of the following GCP resources through their respective modules:
+
+  * **GCP Project**: Creates a new project and links billing.
+  * **VPC Network**: Provisions a Virtual Private Cloud.
+  * **Subnets**: Creates subnets within the VPC.
+  * **Routes**: Defines custom network routes.
+  * **Firewall Rules**: Manages ingress/egress rules.
+  * **Compute Instances**: Deploys virtual machines.
+  * **Persistent Disks**: Creates standalone compute disks.
+  * **Static IPs**: Reserves internal or external static IP addresses.
+  * **Service Accounts**: Manages IAM service accounts.
+  * **Cloud DNS**: Creates public or private DNS zones and record sets.
+  * **Cloud Storage**: Provisions GCS buckets with versioning and labels.
+  * **Load Balancers**: Sets up external and internal HTTP(S) load balancers.
 
 ---
 
 ## Project Structure
 
+The repository is organized to separate configuration, automation logic, and Terraform modules.
+
 ```
 .
-├── main.tf                  # Root Terraform configuration
-├── variables.tf             # Root variable definitions
-├── terraform.tfvars         # Auto-generated variables file (updated by scripts)
-├── modules/
-│   └── project/
-│       ├── main.tf          # Terraform logic for GCP project creation
-│       └── variables.tf     # Module input variables
-├── configs/
-│   └── example-project.yaml # Sample YAML project config
-├── scripts/
-│   ├── helper_functions.py  # Shared functions for YAML + Terraform
-│   ├── deploy.py            # Deploy new projects
-│   └── destroy.py           # Remove existing projects
-└── README.md                # Documentation
+├── Configs/
+│   ├── project-01.yaml
+│   └── project-02.yaml
+├── main.tf
+├── variables.tf
+├── Modules/
+│   ├── project/
+│   ├── vpc/
+│   ├── subnet/
+│   │   ... (and other resource modules)
+├── Scripts/
+│   ├── deploy.py
+│   ├── destroy.py
+│   └── helper_functions.py
+├── .github/workflows/
+│   └── infrastructure-deploy.yml
+├── README.md
+└── README-CI.md
 ```
 
 ---
 
-## How It Works
+## Prerequisites
 
-```
-YAML Config  →  Python Script  →  terraform.tfvars  →  Terraform Apply
-                  (deploy.py)       (auto-updated)        (creates GCP Project)
+Before you begin, ensure you have the following installed and configured:
 
-YAML Config  →  Python Script  →  terraform.tfvars  →  Terraform Destroy
-                  (destroy.py)      (project removed)     (removes GCP Project)
-```
-
-### 1. **Terraform Module (`modules/project/`)**
-
-* Creates a new GCP project
-* Links to a **billing account**
-* Adds **labels**
-* Enables required **APIs** (e.g., Compute, IAM)
-* Uses inputs: `project_id`, `organization_id`, `billing_account`, `labels`, `apis`
+1.  **Terraform**: Version `1.6.0` or compatible.
+2.  **Python**: Version `3.11` or compatible.
+3.  **Python Dependencies**: Install the required `PyYAML` package.
+    ```bash
+    pip install pyyaml
+    ```
+4.  **Google Cloud SDK (`gcloud`)**: Authenticated to your GCP account.
+5.  **GCP Authentication**: You must be authenticated for the scripts to work. The recommended method is to use Application Default Credentials (ADC):
+    ```bash
+    gcloud auth application-default login
+    ```
 
 ---
 
-### 2. **Root Config (`main.tf`)**
+## Configuration
 
-* Calls the project module
-* Reads variables from `terraform.tfvars`
+All infrastructure is defined in a YAML file within the [Configs/](Configs/) directory. You can create a new file or modify an existing one like [project-01.yaml](Configs/project-01.yaml).
 
----
+The file is structured with top-level keys that correspond to the Terraform modules used for deployment.
 
-### 3. **YAML Config (`configs/example-project.yaml`)**
-
-Example:
+### Example: `Configs/project-01.yaml`
 
 ```yaml
-project_name: "auto-intern-demo"
-project_id: "auto-intern-demo-id"
-organization_id: "YOUR_ORG_ID"
-billing_account: "XXXXXX-XXXXXX-XXXXXX"
-deletion_policy: "DELETE"
-labels:
-  owner: intern
-  environment: test
-apis:
-  - compute.googleapis.com
-  - iam.googleapis.com
+project:
+  project_name: "konecta-task9-gcp-project-3"
+  project_id: "konecta-task9-gcp-project-id-3"
+  billing_account: "XXXXXX-XXXXXX-XXXXXX"
+  deletion_policy: "DELETE"
+  labels:
+    owner: intern
+    environment: test
+  apis:
+    - compute.googleapis.com
+    - iam.googleapis.com
+
+vpc_name: "konecta-task9-vpc"
+
+subnets:
+  konecta-task9-pb-subnet:
+    cidr: "10.0.1.0/24"
+    region: "us-central1"
+  konecta-task9-pv-subnet:
+    cidr: "10.0.2.0/24"
+    region: "us-central1"
+
+firewall_rules:
+  allow-ssh:
+    protocol: "tcp"
+    ports: ["22"]
+    source_ranges: ["203.0.113.25/32"]
+
+compute_instances:
+  konecta-task9-pb-vm:
+    machine_type: "e2-medium"
+    zone: "us-central1-a"
+    image: "debian-cloud/debian-12"
+    network: "konecta-task9-vpc"
+    subnetwork: "konecta-task9-pb-subnet"
+    assign_public_ip: true
+    tags: ["ssh", "web"]
+
+# ... other resources like load_balancers, gcs_bucket, etc.
 ```
 
 ---
 
-### 4. **Python Scripts (`scripts/`)**
+## How to Run Locally
 
-#### deploy.py
+You can deploy or destroy infrastructure directly from your local machine using the provided Python scripts.
 
-* Reads a YAML config
-* Ensures `terraform.tfvars` contains a `projects = {}` block
-* Adds the new project block inside `projects = {}` keyed by `project_id`
-* Runs `terraform init` + `terraform apply -auto-approve`
+### 1. Create Your Configuration
 
-Usage:
+Create a new file (e.g., `my-project.yaml`) inside the [Configs/](Configs/) directory.
+
+### 2. Deploy Infrastructure
+
+Run the [deploy.py](Scripts/deploy.py) script, passing the path to your configuration file. The script will first run a `terraform plan` and then prompt you for confirmation before applying the changes.
 
 ```bash
-cd scripts
-python3 Scripts/deploy.py Configs/example-project.yaml
+# The script will prompt for a 'yes' or 'no'
+python Scripts/deploy.py Configs/my-project.yaml
 ```
 
----
+### 3. Destroy Infrastructure
 
-#### destroy.py
+To tear down all resources managed by a configuration, run the [destroy.py](Scripts/destroy.py) script. You will be prompted for confirmation twice: once for the Terraform destroy action and once to determine the destroy scope.
 
-* Reads the same YAML config
-* Finds and removes the project block from `terraform.tfvars` using `project_id`
-* Runs `terraform apply -auto-approve`; since the project block is missing, Terraform will destroy the project automatically
-
-Usage:
+  - **Destroy Scope `modules`**: Runs `terraform destroy` but keeps the generated project folder.
+  - **Destroy Scope `all`**: Runs `terraform destroy` and then deletes the generated project folder.
 
 ```bash
-cd scripts
-python3 Scripts/destroy.py Configs/example-project.yaml
+# The script will prompt for confirmation
+python Scripts/destroy.py Configs/my-project.yaml
 ```
 
 ---
 
-#### helper_functions.py
+## CI/CD Automation
 
-Reusable helpers:
+This project includes a GitHub Actions workflow for fully automated CI/CD. The workflow is triggered by pushes to the `main` branch or can be run manually. It parses commit messages to determine the action (`deploy`/`destroy`), target files, and approval status.
 
-* `ReadYaml(sysArgs, callerName)` → Parse YAML into Python dict
-* `RunTerraform(parent_dir)` → Run `terraform apply` in project root
-
----
-
-#### Project Lifecycle in Action
-
-<p align="center">
-  <strong>Creating a new project</strong>
-  <br>
-  <img src="Screenshots/deploy1.png">
-</p>
-
-<p align="center">
-  <strong>Attempting to create the same project again (idempotency check)</strong>
-  <br>
-  <img src="Screenshots/deploy2.png">
-</p>
-
-<p align="center">
-  <strong>Creating another project</strong>
-  <br>
-  <img src="Screenshots/deploy3.png">
-</p>
-
-<p align="center">
-  <strong>Removing a project</strong>
-  <br>
-  <img src="Screenshots/destroy1.png">
-</p>
-
-<p align="center">
-  <strong>Removing a non-existing project</strong>
-  <br>
-  <img src="Screenshots/destroy2.png">
-</p>
-
-<p align="center">
-  <strong>Applying the configuration with Terraform</strong>
-  <br>
-  <img src="Screenshots/tf-deploy.png">
-</p>
+For a complete guide on commit message syntax, manual dispatch inputs, and troubleshooting, please see [README-CI.md](README-CI.md).
 
 ---
-
-## Notes
-
-* Each project block is stored in `terraform.tfvars` under `projects = { ... }`
-* Projects are **uniquely identified by `project_id`**
-* `terraform.tfvars` is created automatically if missing
-* Duplicate projects will not be added
-* Removing a project requires the same YAML file used during creation
-
----
-
-## Extra Credit (Optional Enhancements)
-
-* Add a GitHub Actions workflow to auto-run `deploy.py` when new YAML configs are committed
-* Add Slack/email notifications after successful provisioning
-* Extend scripts to manage other GCP resources (e.g., IAM bindings, VPCs)
-
----
-
