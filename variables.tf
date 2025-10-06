@@ -15,7 +15,7 @@ variable "vpc_name" {
 }
 
 variable "routes" {
-  type = list(object({
+  type = map(object({
     name              = string
     dest_range        = string
     next_hop_gateway  = optional(string)
@@ -29,7 +29,7 @@ variable "routes" {
 }
 
 variable "subnets" {
-  type = list(object({
+  type = map(object({
     name   = string
     cidr   = string
     region = string
@@ -37,7 +37,7 @@ variable "subnets" {
 }
 
 variable "firewall_rules" {
-  type = list(object({
+  type = map(object({
     name          = string
     protocol      = string
     ports         = list(string)
@@ -46,8 +46,7 @@ variable "firewall_rules" {
 }
 
 variable "compute_disks" {
-  type = list(object({
-    name              = string
+  type = map(object({
     zone              = string
     size_gb           = number
     type              = string
@@ -59,8 +58,7 @@ variable "compute_disks" {
 }
 
 variable "static_ips" {
-  type = list(object({
-    name         = string
+  type = map(object({
     address_type = optional(string, "EXTERNAL")
     region       = optional(string)
     network_tier = optional(string)
@@ -72,16 +70,14 @@ variable "static_ips" {
 }
 
 variable "service_accounts" {
-  type = list(object({
-    account_id   = string
+  type = map(object({
     display_name = optional(string)
     description  = optional(string)
   }))
 }
 
 variable "cloud_dns_zones" {
-  type = list(object({
-    name        = string
+  type = map(object({
     dns_name    = string
     description = optional(string)
     record_sets = optional(list(object({
@@ -107,8 +103,7 @@ variable "gcs_bucket" {
 }
 
 variable "compute_instances" {
-  type = list(object({
-    name             = string
+  type = map(object({
     machine_type     = string
     zone             = string
     image            = string
@@ -120,5 +115,18 @@ variable "compute_instances" {
     tags             = optional(list(string))
     metadata         = optional(map(string))
     labels           = optional(map(string))
+  }))
+}
+
+variable "load_balancers" {
+  type = map(object({
+    protocol            = string # "HTTP or HTTPS"
+    internal            = bool   # true => internal LB, false => external LB
+    frontend_port       = string
+    backend_port        = string
+    health_check_port   = string
+    instance_group_name = string
+    instance_group_zone = string
+    instances           = list(string)
   }))
 }
