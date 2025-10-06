@@ -244,6 +244,12 @@ jobs:
               if [ -d "$dir/.terraform" ]; then
                 git rm -r --cached "$dir/.terraform" 2>/dev/null || true
               fi
+            else
+              # If the directory was deleted locally (e.g., destroy scope=all), stage its removal
+              if git ls-files --error-unmatch "$dir" >/dev/null 2>&1 || git ls-files --error-unmatch "$dir/*" >/dev/null 2>&1; then
+                echo "Staging removal of $dir"
+                git rm -r "$dir" 2>/dev/null || true
+              fi
             fi
           done
 
