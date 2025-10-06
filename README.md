@@ -229,9 +229,9 @@ The workflow requires a GCP service account key stored as a repository secret:
 | Action              | Example Commit Message                                 | Behavior                     |
 | ------------------- | ------------------------------------------------------ | ---------------------------- |
 | Deploy (plan only)  | `deploy` or `deploy Configs/project-01.yaml`           | Shows Terraform plan         |
-| Deploy (apply)      | `deploy yes` or `deploy Configs/project-01.yaml yes`   | Runs non-interactive apply   |
-| Destroy (plan only) | `destroy` or `destroy Configs/project-01.yaml`         | Shows destroy plan           |
-| Destroy (apply)     | `destroy yes` or `destroy Configs/project-01.yaml yes` | Runs non-interactive destroy |
+| Deploy (apply)      | `deploy apply` or `deploy Configs/project-01.yaml apply` | Runs non-interactive apply   |
+| Destroy (module)    | `destroy module` or `destroy Configs/project-01.yaml module` | Destroys resources only     |
+| Destroy (all)       | `destroy all` or `destroy Configs/project-01.yaml all` | Destroys resources and folders |
 
 > If file paths aren’t specified, the workflow automatically targets changed YAML files under `Configs/`.
 
@@ -241,7 +241,7 @@ You can also trigger the workflow manually by specifying:
 
 * `action`: `deploy` or `destroy`
 * `files` (optional): YAML file paths, e.g. `Configs/project-01.yaml Configs/project-02.yaml`
-* `approve` (optional): Set to `yes` to apply or destroy; omit for plan-only runs
+* `approve` (optional): Set to `apply` to apply or destroy; omit for plan-only runs
 * `DESTROY_SCOPE`: Set to `modules` or `all` to control local cleanup
 
 ### Repository Updates
@@ -250,8 +250,8 @@ After each successful run, the workflow commits the generated Terraform project 
 
 ### Notes
 
-* Without `yes`, the workflow performs a plan only (`terraform plan`).
-* With `yes`, it applies or destroys resources non-interactively.
+* Without `apply`, the workflow performs a plan only (`terraform plan`).
+* With `apply`, it applies or destroys resources non-interactively.
 * Ensure the provided service account key (`PERSONAL_GCP_CREDENTIALS`) has all necessary GCP roles and billing permissions.
 
 For a full explanation of triggers, inputs, and troubleshooting, see [README-CI.md](README-CI.md).
@@ -309,8 +309,8 @@ Commit Message → GitHub Actions → Python Scripts → Terraform → GCP Resou
 
 #### Plan vs Apply Behavior
 
-- Without `yes` (or `approve=yes`), the workflow pipes "no" into the scripts so they show a plan and do not apply.
-- With `yes`, the scripts run non‑interactive apply/destroy.
+- Without `apply` (or `approve=apply`), the workflow pipes "no" into the scripts so they show a plan and do not apply.
+- With `apply`, the scripts run non‑interactive apply/destroy.
 - Important: The Google Terraform provider typically requires valid credentials even for plan. Ensure `PERSONAL_GCP_CREDENTIALS` is a valid service account JSON to see plan output in CI.
 
 #### Destroy Scope
@@ -386,7 +386,7 @@ git commit -m "deploy"
 git push
 
 # Apply all infrastructure
-git commit -m "deploy yes"
+git commit -m "deploy apply"
 git push
 ```
 
@@ -397,18 +397,18 @@ git commit -m "deploy configs/project-01.yaml"
 git push
 
 # Apply specific project
-git commit -m "deploy configs/project-01.yaml yes"
+git commit -m "deploy configs/project-01.yaml apply"
 git push
 ```
 
 ##### Infrastructure Cleanup
 ```bash
 # Destroy resources only
-git commit -m "destroy"
+git commit -m "destroy module"
 git push
 
 # Complete cleanup
-git commit -m "destroy yes"
+git commit -m "destroy all"
 git push
 ```
 
@@ -471,7 +471,7 @@ git push
 - **Success Rate**: 99.5% successful deployments
 - **Error Recovery**: Automatic retry mechanisms
 - **State Consistency**: Zero data loss incidents
-
+ 
 #### Future Enhancements
 
 ##### Planned Features

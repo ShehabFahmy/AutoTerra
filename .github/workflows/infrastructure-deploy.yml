@@ -13,7 +13,7 @@ on:
         description: space-separated YAML paths (e.g., configs/a.yaml configs/b.yaml)
         required: false
       approve:
-        description: yes to auto-apply / non-interactive
+        description: apply to auto-apply / non-interactive
         required: false
         default: "no"
 
@@ -79,7 +79,7 @@ jobs:
             MSG_CLEAN=$(echo "$MSG" | tr -s ' ' | tr '[:upper:]' '[:lower:]')
             echo "Cleaned message: '$MSG_CLEAN'"
             
-            # Check for exact patterns - only 8 supported commands
+            # Check for exact patterns - 8 supported commands
             if [[ "$MSG_CLEAN" =~ ^deploy[[:space:]]*$ ]]; then
               # "deploy" - plan all yaml files
               ACTION="deploy"
@@ -123,13 +123,6 @@ jobs:
               if [[ -z "$FILES" ]]; then
                 FILES=$(find Configs/ -name "*.yaml" -o -name "*.yml" 2>/dev/null || true)
               fi
-            elif [[ "$MSG_CLEAN" =~ ^destroy[[:space:]]+configs/[a-z0-9_./\-]+\.(yaml|yml)[[:space:]]+module[[:space:]]*$ ]]; then
-              # "destroy configs/file.yaml module" - destroy specific file without delete folder
-              ACTION="destroy"
-              APPROVE="yes"
-              SCOPE="modules"
-              FILE_LOWER=$(echo "$MSG_CLEAN" | grep -oE 'configs/[a-z0-9_./\-]+\.(yaml|yml)' || true)
-              FILES=$(echo "$FILE_LOWER" | sed 's#^configs/#Configs/#')
             elif [[ "$MSG_CLEAN" =~ ^destroy[[:space:]]+all[[:space:]]*$ ]]; then
               # "destroy all" - destroy all yaml files and delete all folders
               ACTION="destroy"
@@ -141,6 +134,13 @@ jobs:
               if [[ -z "$FILES" ]]; then
                 FILES=$(find Configs/ -name "*.yaml" -o -name "*.yml" 2>/dev/null || true)
               fi
+            elif [[ "$MSG_CLEAN" =~ ^destroy[[:space:]]+configs/[a-z0-9_./\-]+\.(yaml|yml)[[:space:]]+module[[:space:]]*$ ]]; then
+              # "destroy configs/file.yaml module" - destroy specific file without delete folder
+              ACTION="destroy"
+              APPROVE="yes"
+              SCOPE="modules"
+              FILE_LOWER=$(echo "$MSG_CLEAN" | grep -oE 'configs/[a-z0-9_./\-]+\.(yaml|yml)' || true)
+              FILES=$(echo "$FILE_LOWER" | sed 's#^configs/#Configs/#')
             elif [[ "$MSG_CLEAN" =~ ^destroy[[:space:]]+configs/[a-z0-9_./\-]+\.(yaml|yml)[[:space:]]+all[[:space:]]*$ ]]; then
               # "destroy configs/file.yaml all" - destroy specific file and delete folder
               ACTION="destroy"
