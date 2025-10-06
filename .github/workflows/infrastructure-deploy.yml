@@ -82,45 +82,49 @@ jobs:
               ACTION="deploy"
               APPROVE="no"
               RANGE="${{ github.event.before }}..${{ github.sha }}"
-              FILES=$(git diff --name-only $RANGE | grep -E '^configs/.+\.(yaml|yml)$' || true)
+              FILES=$(git diff --name-only $RANGE | grep -E '^Configs/.+\.(yaml|yml)$' || true)
             elif [[ "$MSG_CLEAN" =~ ^deploy[[:space:]]+yes[[:space:]]*$ ]]; then
               # "deploy yes" - all yaml files, apply
               ACTION="deploy"
               APPROVE="yes"
               RANGE="${{ github.event.before }}..${{ github.sha }}"
-              FILES=$(git diff --name-only $RANGE | grep -E '^configs/.+\.(yaml|yml)$' || true)
+              FILES=$(git diff --name-only $RANGE | grep -E '^Configs/.+\.(yaml|yml)$' || true)
             elif [[ "$MSG_CLEAN" =~ ^deploy[[:space:]]+configs/[a-z0-9_./\-]+\.(yaml|yml)[[:space:]]*$ ]]; then
               # "deploy configs/file.yaml" - specific file, plan only
               ACTION="deploy"
               APPROVE="no"
-              FILES=$(echo "$MSG_CLEAN" | grep -oE 'configs/[a-z0-9_./\-]+\.(yaml|yml)' || true)
+              FILE_LOWER=$(echo "$MSG_CLEAN" | grep -oE 'configs/[a-z0-9_./\-]+\.(yaml|yml)' || true)
+              FILES=$(echo "$FILE_LOWER" | sed 's#^configs/#Configs/#')
             elif [[ "$MSG_CLEAN" =~ ^deploy[[:space:]]+configs/[a-z0-9_./\-]+\.(yaml|yml)[[:space:]]+yes[[:space:]]*$ ]]; then
               # "deploy configs/file.yaml yes" - specific file, apply
               ACTION="deploy"
               APPROVE="yes"
-              FILES=$(echo "$MSG_CLEAN" | grep -oE 'configs/[a-z0-9_./\-]+\.(yaml|yml)' || true)
+              FILE_LOWER=$(echo "$MSG_CLEAN" | grep -oE 'configs/[a-z0-9_./\-]+\.(yaml|yml)' || true)
+              FILES=$(echo "$FILE_LOWER" | sed 's#^configs/#Configs/#')
             elif [[ "$MSG_CLEAN" =~ ^destroy[[:space:]]*$ ]]; then
               # "destroy" only - all yaml files, plan only
               ACTION="destroy"
               APPROVE="no"
               RANGE="${{ github.event.before }}..${{ github.sha }}"
-              FILES=$(git diff --name-only $RANGE | grep -E '^configs/.+\.(yaml|yml)$' || true)
+              FILES=$(git diff --name-only $RANGE | grep -E '^Configs/.+\.(yaml|yml)$' || true)
             elif [[ "$MSG_CLEAN" =~ ^destroy[[:space:]]+yes[[:space:]]*$ ]]; then
               # "destroy yes" - all yaml files, apply
               ACTION="destroy"
               APPROVE="yes"
               RANGE="${{ github.event.before }}..${{ github.sha }}"
-              FILES=$(git diff --name-only $RANGE | grep -E '^configs/.+\.(yaml|yml)$' || true)
+              FILES=$(git diff --name-only $RANGE | grep -E '^Configs/.+\.(yaml|yml)$' || true)
             elif [[ "$MSG_CLEAN" =~ ^destroy[[:space:]]+configs/[a-z0-9_./\-]+\.(yaml|yml)[[:space:]]*$ ]]; then
               # "destroy configs/file.yaml" - specific file, plan only
               ACTION="destroy"
               APPROVE="no"
-              FILES=$(echo "$MSG_CLEAN" | grep -oE 'configs/[a-z0-9_./\-]+\.(yaml|yml)' || true)
+              FILE_LOWER=$(echo "$MSG_CLEAN" | grep -oE 'configs/[a-z0-9_./\-]+\.(yaml|yml)' || true)
+              FILES=$(echo "$FILE_LOWER" | sed 's#^configs/#Configs/#')
             elif [[ "$MSG_CLEAN" =~ ^destroy[[:space:]]+configs/[a-z0-9_./\-]+\.(yaml|yml)[[:space:]]+yes.*$ ]]; then
               # "destroy configs/file.yaml yes" - specific file, apply
               ACTION="destroy"
               APPROVE="yes"
-              FILES=$(echo "$MSG_CLEAN" | grep -oE 'configs/[a-z0-9_./\-]+\.(yaml|yml)' || true)
+              FILE_LOWER=$(echo "$MSG_CLEAN" | grep -oE 'configs/[a-z0-9_./\-]+\.(yaml|yml)' || true)
+              FILES=$(echo "$FILE_LOWER" | sed 's#^configs/#Configs/#')
             else
               # No valid pattern found
               ACTION=""
@@ -155,42 +159,30 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Ensure .tf-runs directory exists
-          mkdir -p .tf-runs
-          echo "Created .tf-runs directory"
-
           FILES=( ${{ steps.parse.outputs.files }} )
-          if [[ "${{ steps.parse.outputs.approve }}" == "yes" ]]; then
-            # auto-approve applies by piping yes
-            yes | python scripts/deploy.py "${FILES[@]}"
-          else
-            # ensure plan-only by piping no responses
-            yes no | python scripts/deploy.py "${FILES[@]}" || true
-          fi
+          for f in "${FILES[@]}"; do
+            echo "Running deploy for $f"
+            if [[ "${{ steps.parse.outputs.approve }}" == "yes" ]]; then
+              echo yes | python Scripts/deploy.py "$f"
+            else
+              echo no | python Scripts/deploy.py "$f"
+            fi
+          done
 
       - name: Run destroy (plan-only unless approve=yes)
         if: steps.parse.outputs.action == 'destroy'
         shell: bash
         run: |
           set -euo pipefail
-          # Ensure .tf-runs directory exists
-          mkdir -p .tf-runs
-          echo "Created .tf-runs directory"
-
           FILES=( ${{ steps.parse.outputs.files }} )
-          if [[ "${{ steps.parse.outputs.approve }}" == "yes" ]]; then
-            # auto-approve applies by piping yes
-            MSG="${{ github.event.head_commit.message }}"
-            CHOICE=m
-            shopt -s nocasematch
-            [[ "$MSG" =~ project ]] && CHOICE=p || true
-            shopt -u nocasematch
-            # feed: yes then choice m/p
-            { echo yes; echo "$CHOICE"; } | python scripts/destroy.py "${FILES[@]}"
-          else
-            # ensure plan-only by piping no responses
-            yes no | python scripts/destroy.py "${FILES[@]}" || true
-          fi
+          for f in "${FILES[@]}"; do
+            echo "Running destroy for $f"
+            if [[ "${{ steps.parse.outputs.approve }}" == "yes" ]]; then
+              echo yes | python Scripts/destroy.py "$f"
+            else
+              echo no | python Scripts/destroy.py "$f"
+            fi
+          done
 
       - name: Persist .tf-runs into repo
         if: always()
