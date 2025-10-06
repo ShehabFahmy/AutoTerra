@@ -5,7 +5,7 @@ project:
   billing_account: "XXXXXX-XXXXXX-XXXXXX"
   deletion_policy: "DELETE"
   labels:
-    owner: intern
+    owner: interns
     environment: test
   apis:
     - compute.googleapis.com
