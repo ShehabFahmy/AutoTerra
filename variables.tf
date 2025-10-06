@@ -25,7 +25,7 @@ variable "routes" {
     priority          = optional(number)
     tags              = optional(list(string))
   }))
-  default = []
+  default = {}
 }
 
 variable "subnets" {

@@ -19,51 +19,25 @@ This document explains how the repository’s GitHub Actions workflow deploys an
 
 ### Commit Message Commands
 
-#### Deploy Commands (Plan Only)
-- `deploy` - Deploy all changed YAML files in Configs/ (plan only)
-- `deploy Configs/project-01.yaml` - Deploy specific file (plan only)
-- `deploy configs/project-01.yaml` - Deploy specific file with lowercase path (plan only)
+**Only these 8 commands are supported:**
 
-#### Deploy Commands (Apply)
-- `deploy yes` - Deploy all changed YAML files (apply)
-- `deploy apply` - Deploy all changed YAML files (apply)
-- `deploy Configs/project-01.yaml yes` - Deploy specific file (apply)
-- `deploy configs/project-01.yaml yes` - Deploy specific file with lowercase path (apply)
-- `deploy Configs/project-01.yaml apply` - Deploy specific file (apply)
+#### Deploy Commands
+- `deploy` - Plan all changed YAML files
+- `deploy apply` - Plan and apply all changed YAML files
+- `deploy configs/project-01.yaml` - Plan specific YAML file
+- `deploy configs/project-01.yaml apply` - Plan and apply specific YAML file
 
-#### Destroy Commands (Plan Only)
-- `destroy` - Destroy all changed YAML files (plan only)
-- `destroy modules` - Destroy all changed YAML files, modules scope (plan only)
-- `destroy m` - Destroy all changed YAML files, modules scope (plan only)
-- `destroy all` - Destroy all changed YAML files, all scope (plan only)
-- `destroy a` - Destroy all changed YAML files, all scope (plan only)
-- `destroy Configs/project-01.yaml` - Destroy specific file (plan only)
-- `destroy configs/project-01.yaml` - Destroy specific file with lowercase path (plan only)
-- `destroy Configs/project-01.yaml modules` - Destroy specific file, modules scope (plan only)
-- `destroy configs/project-01.yaml all` - Destroy specific file, all scope (plan only)
-
-#### Destroy Commands (Apply)
-- `destroy yes` - Destroy all changed YAML files (apply)
-- `destroy apply` - Destroy all changed YAML files (apply)
-- `destroy yes modules` - Destroy all changed YAML files, modules scope (apply)
-- `destroy yes all` - Destroy all changed YAML files, all scope (apply)
-- `destroy apply modules` - Destroy all changed YAML files, modules scope (apply)
-- `destroy apply all` - Destroy all changed YAML files, all scope (apply)
-- `destroy Configs/project-01.yaml yes` - Destroy specific file (apply)
-- `destroy configs/project-01.yaml apply` - Destroy specific file (apply)
-- `destroy Configs/project-01.yaml yes modules` - Destroy specific file, modules scope (apply)
-- `destroy Configs/project-01.yaml yes all` - Destroy specific file, all scope (apply)
-
-#### Scope Options (Destroy Only)
-- **`modules`** (default): Terraform destroy only
-- **`all`**: Terraform destroy + delete generated project folders
+#### Destroy Commands
+- `destroy module` - Destroy all changed YAML files without deleting folders
+- `destroy configs/project-01.yaml module` - Destroy specific YAML file without deleting folder
+- `destroy all` - Destroy all changed YAML files and delete all folders
+- `destroy configs/project-01.yaml all` - Destroy specific YAML file and delete folder
 
 #### Notes
 - If you use lowercase `configs/...` in the commit message, the workflow maps it to `Configs/...` automatically.
 - If you do not specify file paths, the workflow targets changed files under `Configs/` in the pushed commit.
 - All commit messages are case-insensitive.
-- Commands support both `yes` and `apply` for approval.
-- Scope options support both full names (`modules`, `all`) and short forms (`m`, `a`).
+- **No other command variations are supported** - only these exact 8 commands.
 
 ### Manual Dispatch Inputs
 - `action`: `deploy` or `destroy`.

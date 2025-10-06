@@ -79,64 +79,59 @@ jobs:
             MSG_CLEAN=$(echo "$MSG" | tr -s ' ' | tr '[:upper:]' '[:lower:]')
             echo "Cleaned message: '$MSG_CLEAN'"
             
-            # Check for exact patterns
+            # Check for exact patterns - only 8 supported commands
             if [[ "$MSG_CLEAN" =~ ^deploy[[:space:]]*$ ]]; then
-              # "deploy" only - all yaml files, plan only
+              # "deploy" - plan all yaml files
               ACTION="deploy"
               APPROVE="no"
               RANGE="${{ github.event.before }}..${{ github.sha }}"
               FILES=$(git diff --name-only $RANGE | grep -E '^Configs/.+\.(yaml|yml)$' || true)
-            elif [[ "$MSG_CLEAN" =~ ^deploy[[:space:]]+(yes|apply)[[:space:]]*$ ]]; then
-              # "deploy yes" - all yaml files, apply
+            elif [[ "$MSG_CLEAN" =~ ^deploy[[:space:]]+apply[[:space:]]*$ ]]; then
+              # "deploy apply" - plan and apply all yaml files
               ACTION="deploy"
               APPROVE="yes"
               RANGE="${{ github.event.before }}..${{ github.sha }}"
               FILES=$(git diff --name-only $RANGE | grep -E '^Configs/.+\.(yaml|yml)$' || true)
             elif [[ "$MSG_CLEAN" =~ ^deploy[[:space:]]+configs/[a-z0-9_./\-]+\.(yaml|yml)[[:space:]]*$ ]]; then
-              # "deploy configs/file.yaml" - specific file, plan only
+              # "deploy configs/file.yaml" - plan specific file
               ACTION="deploy"
               APPROVE="no"
               FILE_LOWER=$(echo "$MSG_CLEAN" | grep -oE 'configs/[a-z0-9_./\-]+\.(yaml|yml)' || true)
               FILES=$(echo "$FILE_LOWER" | sed 's#^configs/#Configs/#')
-            elif [[ "$MSG_CLEAN" =~ ^deploy[[:space:]]+configs/[a-z0-9_./\-]+\.(yaml|yml)[[:space:]]+(yes|apply)[[:space:]]*$ ]]; then
-              # "deploy configs/file.yaml yes" - specific file, apply
+            elif [[ "$MSG_CLEAN" =~ ^deploy[[:space:]]+configs/[a-z0-9_./\-]+\.(yaml|yml)[[:space:]]+apply[[:space:]]*$ ]]; then
+              # "deploy configs/file.yaml apply" - plan and apply specific file
               ACTION="deploy"
               APPROVE="yes"
               FILE_LOWER=$(echo "$MSG_CLEAN" | grep -oE 'configs/[a-z0-9_./\-]+\.(yaml|yml)' || true)
               FILES=$(echo "$FILE_LOWER" | sed 's#^configs/#Configs/#')
-            elif [[ "$MSG_CLEAN" =~ ^destroy[[:space:]]*([am]|all|modules)?[[:space:]]*$ ]]; then
-              # "destroy" only - all yaml files, plan only
-              ACTION="destroy"
-              APPROVE="no"
-              RANGE="${{ github.event.before }}..${{ github.sha }}"
-              FILES=$(git diff --name-only $RANGE | grep -E '^Configs/.+\.(yaml|yml)$' || true)
-              # optional scope token
-              if [[ "$MSG_CLEAN" =~ [[:space:]](all|a)[[:space:]]*$ ]]; then SCOPE="all"; fi
-              if [[ "$MSG_CLEAN" =~ [[:space:]](modules|m)[[:space:]]*$ ]]; then SCOPE="modules"; fi
-            elif [[ "$MSG_CLEAN" =~ ^destroy[[:space:]]+(yes|apply)([[:space:]]+(all|a|modules|m))?[[:space:]]*$ ]]; then
-              # "destroy yes" - all yaml files, apply
+            elif [[ "$MSG_CLEAN" =~ ^destroy[[:space:]]+module[[:space:]]*$ ]]; then
+              # "destroy module" - destroy all yaml files without delete folder
               ACTION="destroy"
               APPROVE="yes"
+              SCOPE="modules"
               RANGE="${{ github.event.before }}..${{ github.sha }}"
               FILES=$(git diff --name-only $RANGE | grep -E '^Configs/.+\.(yaml|yml)$' || true)
-              if [[ "$MSG_CLEAN" =~ (all|a)[[:space:]]*$ ]]; then SCOPE="all"; fi
-              if [[ "$MSG_CLEAN" =~ (modules|m)[[:space:]]*$ ]]; then SCOPE="modules"; fi
-            elif [[ "$MSG_CLEAN" =~ ^destroy[[:space:]]+configs/[a-z0-9_./\-]+\.(yaml|yml)([[:space:]]+(all|a|modules|m))?[[:space:]]*$ ]]; then
-              # "destroy configs/file.yaml" - specific file, plan only
-              ACTION="destroy"
-              APPROVE="no"
-              FILE_LOWER=$(echo "$MSG_CLEAN" | grep -oE 'configs/[a-z0-9_./\-]+\.(yaml|yml)' || true)
-              FILES=$(echo "$FILE_LOWER" | sed 's#^configs/#Configs/#')
-              if [[ "$MSG_CLEAN" =~ (all|a)[[:space:]]*$ ]]; then SCOPE="all"; fi
-              if [[ "$MSG_CLEAN" =~ (modules|m)[[:space:]]*$ ]]; then SCOPE="modules"; fi
-            elif [[ "$MSG_CLEAN" =~ ^destroy[[:space:]]+configs/[a-z0-9_./\-]+\.(yaml|yml)[[:space:]]+(yes|apply)([[:space:]]+(all|a|modules|m))?.*$ ]]; then
-              # "destroy configs/file.yaml yes" - specific file, apply
+            elif [[ "$MSG_CLEAN" =~ ^destroy[[:space:]]+configs/[a-z0-9_./\-]+\.(yaml|yml)[[:space:]]+module[[:space:]]*$ ]]; then
+              # "destroy configs/file.yaml module" - destroy specific file without delete folder
               ACTION="destroy"
               APPROVE="yes"
+              SCOPE="modules"
               FILE_LOWER=$(echo "$MSG_CLEAN" | grep -oE 'configs/[a-z0-9_./\-]+\.(yaml|yml)' || true)
               FILES=$(echo "$FILE_LOWER" | sed 's#^configs/#Configs/#')
-              if [[ "$MSG_CLEAN" =~ (all|a)[[:space:]]*$ ]]; then SCOPE="all"; fi
-              if [[ "$MSG_CLEAN" =~ (modules|m)[[:space:]]*$ ]]; then SCOPE="modules"; fi
+            elif [[ "$MSG_CLEAN" =~ ^destroy[[:space:]]+all[[:space:]]*$ ]]; then
+              # "destroy all" - destroy all yaml files and delete all folders
+              ACTION="destroy"
+              APPROVE="yes"
+              SCOPE="all"
+              RANGE="${{ github.event.before }}..${{ github.sha }}"
+              FILES=$(git diff --name-only $RANGE | grep -E '^Configs/.+\.(yaml|yml)$' || true)
+            elif [[ "$MSG_CLEAN" =~ ^destroy[[:space:]]+configs/[a-z0-9_./\-]+\.(yaml|yml)[[:space:]]+all[[:space:]]*$ ]]; then
+              # "destroy configs/file.yaml all" - destroy specific file and delete folder
+              ACTION="destroy"
+              APPROVE="yes"
+              SCOPE="all"
+              FILE_LOWER=$(echo "$MSG_CLEAN" | grep -oE 'configs/[a-z0-9_./\-]+\.(yaml|yml)' || true)
+              FILES=$(echo "$FILE_LOWER" | sed 's#^configs/#Configs/#')
             else
               # No valid pattern found
               ACTION=""
