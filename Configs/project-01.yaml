@@ -5,7 +5,7 @@ project:
   billing_account: "XXXXXX-XXXXXX-XXXXXX"
   deletion_policy: "DELETE"
   labels:
-    owner: interns
+    owner: intern
     environment: test
   apis:
     - compute.googleapis.com
@@ -47,11 +47,11 @@ compute_disks:
 static_ips:
   - name: "konecta-task9-global-ip-frontend"
     address_type: "EXTERNAL"
-    region: null # Global IP
+    region: null   # Global IP
     description: "Global static IP for frontend load balancer"
   - name: "konecta-task9-regional-ip-backend"
     address_type: "INTERNAL"
-    region: "us-central1" # Regional IP
+    region: "us-central1"   # Regional IP
     subnetwork: "default"
     purpose: "GCE_ENDPOINT"
     description: "Regional internal IP for backend VM"

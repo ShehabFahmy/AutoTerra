@@ -98,12 +98,6 @@ if __name__ == "__main__":
     vars_path = project_path / "variables.tf"
     mods_path = project_path / "Modules"
 
-    # Ensure provider configuration is available inside the generated project folder
-    providers_src = parent_dir / "providers.tf"
-    providers_dest = project_path / "providers.tf"
-    if providers_src.exists():
-        shutil.copyfile(providers_src, providers_dest)
-
     WriteMainTf(availModules, parent_dir/"main.tf", main_path)
     WriteVarsTf(availModules, parent_dir/"variables.tf", vars_path)
     CopyModules(availModules, parent_dir/"Modules", mods_path)
