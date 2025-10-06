@@ -157,7 +157,9 @@ jobs:
           fi
           echo "action=$ACTION" >> $GITHUB_OUTPUT
           echo "approve=$APPROVE" >> $GITHUB_OUTPUT
-          echo "files=$FILES" >> $GITHUB_OUTPUT
+          # Convert multi-line FILES to space-separated single line
+          FILES_SINGLE_LINE=$(echo "$FILES" | tr '\n' ' ' | sed 's/ $//')
+          echo "files=$FILES_SINGLE_LINE" >> $GITHUB_OUTPUT
           echo "scope=$SCOPE" >> $GITHUB_OUTPUT
           printf "Parsed action='%s' approve='%s' files=\n%s\n" "$ACTION" "$APPROVE" "$FILES"
 
