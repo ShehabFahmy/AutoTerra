@@ -14,6 +14,20 @@ variable "vpc_name" {
   type = string
 }
 
+variable "routes" {
+  type = list(object({
+    name              = string
+    dest_range        = string
+    next_hop_gateway  = optional(string)
+    next_hop_ip       = optional(string)
+    next_hop_instance = optional(string)
+    next_hop_ilb      = optional(string)
+    priority          = optional(number)
+    tags              = optional(list(string))
+  }))
+  default = []
+}
+
 variable "subnets" {
   type = list(object({
     name   = string

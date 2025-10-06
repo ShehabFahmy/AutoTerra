@@ -15,6 +15,21 @@ module "vpc" {
   project_id = module.project.project_id
 }
 
+module "routes" {
+  source        = "./Modules/route"
+  count         = length(var.routes)
+  project_id    = module.project.project_id
+  vpc_self_link = module.vpc.vpc_self_link
+  name          = var.routes[count.index].name
+  dest_range    = var.routes[count.index].dest_range
+  next_hop_gateway  = var.routes[count.index].next_hop_gateway
+  next_hop_ip       = var.routes[count.index].next_hop_ip
+  next_hop_instance = var.routes[count.index].next_hop_instance
+  next_hop_ilb      = var.routes[count.index].next_hop_ilb
+  priority          = var.routes[count.index].priority
+  tags              = var.routes[count.index].tags
+}
+
 module "subnets" {
   source        = "./Modules/subnet"
   count         = length(var.subnets)

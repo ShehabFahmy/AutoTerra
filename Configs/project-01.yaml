@@ -11,6 +11,10 @@ project:
     - compute.googleapis.com
     - iam.googleapis.com
 vpc_name: "konecta-task9-vpc"
+routes:
+  - name: "konecta-task9-vpc-default-route"
+    dest_range: "0.0.0.0/0"
+    next_hop_gateway: "default-internet-gateway"
 subnets:
   - name: "konecta-task9-pb-subnet"
     cidr: "10.0.1.0/24"
