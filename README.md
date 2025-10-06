@@ -251,7 +251,7 @@ AutoTerra supports exactly **8 commands** for infrastructure management:
    - **Behavior**: Shows plan then automatically applies changes for single project
 
 #### 🗑️ **Destroy Commands (4)**
-
+ 
 5. **`destroy module`**
    - **What it does**: Destroys all GCP resources without deleting local folders
    - **Example**: `git commit -m "destroy module"`
