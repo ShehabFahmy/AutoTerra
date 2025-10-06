@@ -26,20 +26,20 @@ def RunTerraform(command, project_path):
     try:
         approve = os.environ.get("APPROVE", "no").lower() == "yes"
         print("\n[!] Running terraform init...")
-        subprocess.run(["terraform", "init"], cwd=project_path, check=True)
+        subprocess.run(["terraform", "init", "-input=false"], cwd=project_path, check=True)
 
         if command == "apply":
-            print("\n[!] Running terraform plan...")
-            subprocess.run(["terraform", "plan"], cwd=project_path, check=True)
+            print("\n[!] Running terraform plan (no color)...")
+            subprocess.run(["terraform", "plan", "-no-color", "-input=false"], cwd=project_path, check=True)
             if approve:
-                print("\n[!] Running terraform apply -auto-approve...")
-                subprocess.run(["terraform", "apply", "-auto-approve"], cwd=project_path, check=True)
+                print("\n[!] Running terraform apply -auto-approve (no color)...")
+                subprocess.run(["terraform", "apply", "-auto-approve", "-input=false", "-no-color"], cwd=project_path, check=True)
         elif command == "destroy":
             if approve:
-                print("\n[!] Running terraform destroy -auto-approve...")
-                subprocess.run(["terraform", "destroy", "-auto-approve"], cwd=project_path, check=True)
+                print("\n[!] Running terraform destroy -auto-approve (no color)...")
+                subprocess.run(["terraform", "destroy", "-auto-approve", "-input=false", "-no-color"], cwd=project_path, check=True)
             else:
-                print("\n[!] Running terraform plan -destroy (plan only)...")
-                subprocess.run(["terraform", "plan", "-destroy"], cwd=project_path, check=True)
+                print("\n[!] Running terraform plan -destroy (plan only, no color)...")
+                subprocess.run(["terraform", "plan", "-destroy", "-no-color", "-input=false"], cwd=project_path, check=True)
     except subprocess.CalledProcessError as e:
         print(f"\n[!] Terraform command failed: {e}")
