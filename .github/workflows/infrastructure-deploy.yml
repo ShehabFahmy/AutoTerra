@@ -205,6 +205,45 @@ jobs:
             fi
           done
 
+      - name: Commit generated project folders
+        if: steps.parse.outputs.files != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILES=( ${{ steps.parse.outputs.files }} )
+          PROJECT_DIRS=()
+          for f in "${FILES[@]}"; do
+            pid=$(python -c "import sys,yaml; d=yaml.safe_load(open(sys.argv[1])) or {}; print((d.get('project') or {}).get('project_id',''))" "$f")
+            if [[ -n "$pid" ]]; then PROJECT_DIRS+=("$pid"); fi
+          done
+
+          if [ ${#PROJECT_DIRS[@]} -eq 0 ]; then
+            echo "No project directories to commit. Skipping."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          for dir in "${PROJECT_DIRS[@]}"; do
+            if [ -d "$dir" ]; then
+              echo "Staging $dir"
+              git add -A "$dir" || true
+              if [ -d "$dir/.terraform" ]; then
+                git rm -r --cached "$dir/.terraform" 2>/dev/null || true
+              fi
+            fi
+          done
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          MSG="CI: persist generated project folders for ${{ steps.parse.outputs.files }} (action=${{ steps.parse.outputs.action }}, approve=${{ steps.parse.outputs.approve }})"
+          git commit -m "$MSG"
+          git push
+
       - name: Notify Slack (success)
         if: success()
         shell: bash
