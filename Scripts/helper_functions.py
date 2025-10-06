@@ -29,17 +29,22 @@ def RunTerraform(command, project_path):
         subprocess.run(["terraform", "init", "-input=false"], cwd=project_path, check=True)
 
         if command == "apply":
-            print("\n[!] Running terraform plan (no color)...")
-            subprocess.run(["terraform", "plan", "-no-color", "-input=false"], cwd=project_path, check=True)
-            if approve:
-                print("\n[!] Running terraform apply -auto-approve (no color)...")
-                subprocess.run(["terraform", "apply", "-auto-approve", "-input=false", "-no-color"], cwd=project_path, check=True)
-        elif command == "destroy":
-            if approve:
-                print("\n[!] Running terraform destroy -auto-approve (no color)...")
-                subprocess.run(["terraform", "destroy", "-auto-approve", "-input=false", "-no-color"], cwd=project_path, check=True)
+            print("\n[!] Running terraform init...")
+            subprocess.run(["terraform", "init"], cwd=project_path, check=True)
+            subprocess.run(["terraform", "plan"], cwd=project_path, check=True)
+            # Ask for approval
+            approval = input("\nDo you want to apply the Terraform changes? (yes/no): ").strip().lower()
+            if approval in ["yes", "y", "Y", "YES", "Yes"]:
+                print("\n[!] Running terraform apply...")
+                subprocess.run(["terraform", "apply", "-auto-approve"], cwd=project_path, check=True)
             else:
-                print("\n[!] Running terraform plan -destroy (plan only, no color)...")
-                subprocess.run(["terraform", "plan", "-destroy", "-no-color", "-input=false"], cwd=project_path, check=True)
+                print("\n[!] Terraform apply canceled by user.")
+        elif command == "destroy":
+            approval = input("\n[!] Are you sure you want to destroy all Terraform-managed resources? (yes/no): ").strip().lower()
+            if approval in ["yes", "y"]:
+                print("\n[!] Running terraform destroy...")
+                subprocess.run(["terraform", "destroy"], cwd=project_path, check=True)
+            else:
+                print("\n[!] Terraform destroy canceled by user.")
     except subprocess.CalledProcessError as e:
         print(f"\n[!] Terraform command failed: {e}")
