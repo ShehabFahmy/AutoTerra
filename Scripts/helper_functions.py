@@ -1,4 +1,5 @@
 import sys
+import os
 import yaml
 import subprocess
 from pathlib import Path
@@ -23,15 +24,22 @@ def ReadYaml(sysArgs, callerName):
 
 def RunTerraform(command, project_path):
     try:
+        approve = os.environ.get("APPROVE", "no").lower() == "yes"
+        print("\n[!] Running terraform init...")
+        subprocess.run(["terraform", "init"], cwd=project_path, check=True)
+
         if command == "apply":
-            print("\n[!] Running terraform init...")
-            subprocess.run(["terraform", "init"], cwd=project_path, check=True)
+            print("\n[!] Running terraform plan...")
             subprocess.run(["terraform", "plan"], cwd=project_path, check=True)
-            # if isApproved:
-            # print("\n[!] Running terraform apply...")
-            # subprocess.run(["terraform", "apply"], cwd=project_path, check=True)
+            if approve:
+                print("\n[!] Running terraform apply -auto-approve...")
+                subprocess.run(["terraform", "apply", "-auto-approve"], cwd=project_path, check=True)
         elif command == "destroy":
-            print("\n[!] Running terraform destroy...")
-            subprocess.run(["terraform", "destroy"], cwd=project_path, check=True)
+            if approve:
+                print("\n[!] Running terraform destroy -auto-approve...")
+                subprocess.run(["terraform", "destroy", "-auto-approve"], cwd=project_path, check=True)
+            else:
+                print("\n[!] Running terraform plan -destroy (plan only)...")
+                subprocess.run(["terraform", "plan", "-destroy"], cwd=project_path, check=True)
     except subprocess.CalledProcessError as e:
         print(f"\n[!] Terraform command failed: {e}")
