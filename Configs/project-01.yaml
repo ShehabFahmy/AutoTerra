@@ -1,6 +1,6 @@
 project:
-  project_name: "konecta-task9-gcp-project-1"
-  project_id: "konecta-task9-gcp-project-id-1"
+  project_name: "konecta-task9-gcp-project-5"
+  project_id: "konecta-task9-gcp-project-id-5"
   organization_id: null
   billing_account: "XXXXXX-XXXXXX-XXXXXX"
   deletion_policy: "DELETE"
