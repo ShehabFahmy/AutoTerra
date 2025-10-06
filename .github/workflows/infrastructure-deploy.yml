@@ -165,7 +165,17 @@ jobs:
             if [[ "${{ steps.parse.outputs.approve }}" == "yes" ]]; then
               echo yes | python Scripts/deploy.py "$f"
             else
-              echo no | python Scripts/deploy.py "$f"
+              # Let the script generate files; ignore its plan failure if creds missing
+              echo no | python Scripts/deploy.py "$f" || true
+              # Best-effort plan without creds
+              pid=$(python -c "import sys,yaml; d=yaml.safe_load(open(sys.argv[1])) or {}; print((d.get('project') or {}).get('project_id',''))" "$f")
+              if [[ -n "$pid" && -d "$pid" ]]; then
+                echo "Showing plan (no creds) for $pid"
+                terraform -chdir="$pid" init -input=false || true
+                terraform -chdir="$pid" plan -refresh=false -no-color -input=false || true
+              else
+                echo "Could not determine project directory to show plan"
+              fi
             fi
           done
 
@@ -180,7 +190,16 @@ jobs:
             if [[ "${{ steps.parse.outputs.approve }}" == "yes" ]]; then
               echo yes | python Scripts/destroy.py "$f"
             else
-              echo no | python Scripts/destroy.py "$f"
+              # Plan-only destroy; ignore script failure if creds missing
+              echo no | python Scripts/destroy.py "$f" || true
+              pid=$(python -c "import sys,yaml; d=yaml.safe_load(open(sys.argv[1])) or {}; print((d.get('project') or {}).get('project_id',''))" "$f")
+              if [[ -n "$pid" && -d "$pid" ]]; then
+                echo "Showing destroy plan (no creds) for $pid"
+                terraform -chdir="$pid" init -input=false || true
+                terraform -chdir="$pid" plan -destroy -refresh=false -no-color -input=false || true
+              else
+                echo "Could not determine project directory to show destroy plan"
+              fi
             fi
           done
 
